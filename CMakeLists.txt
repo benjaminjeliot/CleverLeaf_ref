@@ -3,11 +3,18 @@ project (CleverLeaf CXX Fortran)
 
 set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
+set (CMAKE_MODULE_PATH "$ENV{ALPINE_MODULE_PATH};${CMAKE_MODULE_PATH}")
+set (CMAKE_MODULE_PATH "${ALPINE_MODULE_PATH};${CMAKE_MODULE_PATH}")
+
 find_package (SAMRAI REQUIRED)
 find_package (HDF5 REQUIRED)
 set (Boost_NO_BOOST_CMAKE ON)
 find_package (Boost REQUIRED)
 find_package (MPI REQUIRED)
+
+find_package(Alpine REQUIRED)
+find_package(Conduit REQUIRED)
+find_package(VTKm REQUIRED)
 
 include_directories (
   ${SAMRAI_INCLUDE_DIRS}

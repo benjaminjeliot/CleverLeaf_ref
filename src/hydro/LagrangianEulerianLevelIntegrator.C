@@ -28,6 +28,8 @@
 #include "SAMRAI/xfer/PatchLevelBorderFillPattern.h"
 #include "SAMRAI/pdat/CellData.h"
 
+#include <alpine.hpp>
+
 tbox::StartupShutdownManager::Handler
 LagrangianEulerianLevelIntegrator::s_initialize_handler(
     LagrangianEulerianLevelIntegrator::initializeCallback,
@@ -762,6 +764,17 @@ void LagrangianEulerianLevelIntegrator::getFieldSummary(
     mpi.AllReduce(level_kinetic_energy, 1, MPI_SUM);
     mpi.AllReduce(level_effective_cells, 1, MPI_SUM);
   }
+}
+
+void LagrangianEulerianLevelIntegrator::getAlpineData(
+    const boost::shared_ptr<hier::PatchLevel>& level, conduit::Node &alpine_data)
+{
+	std::cout << "Inside LagrangianEulerianLevelIntegrator::doAlpine" << std::endl;
+
+	for (hier::PatchLevel::iterator p(level->begin()); p != level->end(); ++p) {
+		boost::shared_ptr<hier::Patch>patch=*p;
+		return d_patch_strategy->getAlpineData(*patch, alpine_data);
+	}
 }
 
 void LagrangianEulerianLevelIntegrator::lagrangianPredictor(

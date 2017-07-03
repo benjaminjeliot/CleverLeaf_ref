@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <vector>
 
 #include "SAMRAI/hier/VariableDatabase.h"
 #include "SAMRAI/geom/CartesianPatchGeometry.h"
@@ -36,6 +37,9 @@
 #include "pdat/CleverNodeInjection.h"
 
 #include "macros.h"
+
+#include <conduit.hpp>
+#include <conduit_blueprint.hpp>
 
 #define F90_FUNC(name,NAME) name ## _
 
@@ -1899,6 +1903,167 @@ void Cleverleaf::fillLevelIndicator(
           patch.getPatchData(d_level_indicator, getCurrentDataContext())));
 
     level_indicator->fillAll(level_number);
+}
+
+void Cleverleaf::getAlpineData(
+    SAMRAI::hier::Patch& patch, conduit::Node &alpine_data)
+{
+    std::cout << "Inside Cleverleaf::doAlpine" << std::endl;
+
+    size_t box_size = patch.getBox().size();
+    std::cout << "  patch GlobalId = " << patch.getGlobalId() << std::endl;
+    std::cout << "  patch LocalId = " << patch.getLocalId() << std::endl;
+    std::cout << "  patch size = " << box_size << std::endl;
+
+    const boost::shared_ptr<geom::CartesianPatchGeometry> patch_geometry(
+        SHARED_PTR_CAST(geom::CartesianPatchGeometry,
+        patch.getPatchGeometry()));
+    std::cout << "  dx = " << *patch_geometry->getDx() << std::endl;
+    std::cout << "  x lower = " << *patch_geometry->getXLower() << std::endl;
+    std::cout << "  x upper = " << *patch_geometry->getXUpper() << std::endl;
+
+    const hier::Index ifirst = patch.getBox().lower();
+    const hier::Index ilast = patch.getBox().upper();
+    int xmin = ifirst(0);
+    int ymin = ifirst(1);
+    int xmax = ilast(0);
+    int ymax = ilast(1);
+    std::cout << "  xmin, xmax = " << xmin << ", " << xmax << std::endl;
+    std::cout << "  ymin, ymax = " << ymin << ", " << ymax << std::endl;
+
+    boost::shared_ptr<clever::pdat::CleverNodeData<double> > vertex_coordinates(
+        SHARED_PTR_CAST(clever::pdat::CleverNodeData<double> ,
+          patch.getPatchData( d_vertexcoords, getCurrentDataContext())));
+
+    // Output coordinates
+    std::cout << "  coordinates" << std::endl;
+    std::cout << "    (first and last)" << std::endl;
+    std::cout << "    " << vertex_coordinates->getPointer(0)[0] << ' ';
+    std::cout << vertex_coordinates->getPointer(1)[0] << std::endl;
+    std::cout << "    " << vertex_coordinates->getPointer(0)[box_size - 1] << ' ';
+    std::cout << vertex_coordinates->getPointer(1)[box_size - 1] << std::endl;
+
+    // TODO(jim): Fix domain -- need a global value
+    alpine_data["state/domain"] = patch.getLocalId().getValue();
+
+    alpine_data["coordsets/coords/type"] = "rectilinear";
+    std::vector<double> coords_x;
+    std::vector<double> coords_y;
+    for (int i = 0; i < xmax - xmin + 1 + 5; ++i) {
+      coords_x.push_back(vertex_coordinates->getPointer(0)[i]);
+    }
+    for (int j = 0; j < ymax - ymin + 1 + 5; ++j) {
+      coords_y.push_back(vertex_coordinates->getPointer(1)[j * (xmax - xmin + 1 + 5)]);
+    }
+    alpine_data["coordsets/coords/values/x"] = coords_x;
+    alpine_data["coordsets/coords/values/y"] = coords_y;
+
+    std::cout << "  x coordinates" << std::endl;
+    std::cout << "    " << coords_x.size() << " values " << std::endl;
+    for (std::vector<double>::iterator it = coords_x.begin(); it != coords_x.end(); ++it) {
+      std::cout << *it << ' ';
+    }
+    std::cout << std::endl;
+
+    std::cout << "  y coordinates" << std::endl;
+    std::cout << "    " << coords_y.size() << " values " << std::endl;
+    for (std::vector<double>::iterator it = coords_y.begin(); it != coords_y.end(); ++it) {
+      std::cout << *it << ' ';
+    }
+    std::cout << std::endl;
+
+    alpine_data["topologies/mesh/type"] = "rectilinear";
+    alpine_data["topologies/mesh/coordset"] = "coords";
+
+//    alpine_data["topologies/mesh/elements/shape"] = "hex";
+//    alpine_data["topologies/mesh/elements/connectivity"].set_external(m_nodelist);
+
+    // TODO(jim): Implement side variables: massflux and volflux
+
+    // TODO(jim): Fix the x velocity data -- how to get x velocity from d_velocity
+    alpine_data["fields/velocity_x/association"] = "vertex";
+    boost::shared_ptr<clever::pdat::CleverNodeData<double> > velocity_x(
+        SHARED_PTR_CAST(clever::pdat::CleverNodeData<double>,
+            patch.getPatchData(d_velocity, getCurrentDataContext())));
+    alpine_data["fields/velocity_x/topology"] = "mesh";
+    alpine_data["fields/velocity_x/type"] = "scalar";
+    alpine_data["fields/velocity_x/values"].set_external(velocity_x->getPointer());
+
+    // TODO(jim): Fix the y velocity data -- how to get y velocity from d_velocity
+    alpine_data["fields/velocity_y/association"] = "vertex";
+    boost::shared_ptr<clever::pdat::CleverNodeData<double> > velocity_y(
+        SHARED_PTR_CAST(clever::pdat::CleverNodeData<double>,
+            patch.getPatchData(d_velocity, getCurrentDataContext())));
+    alpine_data["fields/velocity_y/topology"] = "mesh";
+    alpine_data["fields/velocity_y/type"] = "scalar";
+    alpine_data["fields/velocity_y/values"].set_external(velocity_y->getPointer());
+
+    alpine_data["fields/pressure/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > pressure(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+            patch.getPatchData(d_pressure, getCurrentDataContext())));
+    alpine_data["fields/pressure/topology"] = "mesh";
+    alpine_data["fields/pressure/type"] = "scalar";
+//    alpine_data["fields/pressure/values"].set_external(pressure->getPointer());
+    alpine_data["fields/pressure/values"] = *pressure->getPointer();
+
+    alpine_data["fields/viscosity/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > viscosity(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+        patch.getPatchData(d_viscosity, getCurrentDataContext())));
+    alpine_data["fields/viscosity/topology"] = "mesh";
+    alpine_data["fields/viscosity/type"] = "scalar";
+    alpine_data["fields/viscosity/values"].set_external(viscosity->getPointer());
+
+    alpine_data["fields/soundspeed/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > soundspeed(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+            patch.getPatchData(d_soundspeed, getCurrentDataContext())));
+    alpine_data["fields/soundspeed/topology"] = "mesh";
+    alpine_data["fields/soundspeed/type"] = "scalar";
+    alpine_data["fields/soundspeed/values"].set_external(soundspeed->getPointer());
+
+    alpine_data["fields/density/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > density(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+            patch.getPatchData(d_density, getCurrentDataContext())));
+    alpine_data["fields/density/topology"] = "mesh";
+    alpine_data["fields/density/type"] = "scalar";
+//    alpine_data["fields/density/values"].set_external(density->getPointer());
+    std::vector<double> density_vec;
+    density_vec.assign(density->getPointer(), density->getPointer() + (xmax - xmin + 5) * (ymax - ymin + 5));
+//    std::vector<double> density_vec(density->getPointer(), (xmax - xmin + 5) * (ymax - ymin + 5));
+    std::cout << "  densities" << std::endl;
+    alpine_data["fields/density/values"] = density_vec;
+//    for (std::vector<double>::iterator it  = density_vec.begin(); it != density_vec.end(); ++it) {
+//      std::cout << *it << ' ';
+//    }
+//    std::cout << std::endl;
+
+    alpine_data["fields/energy/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > energy(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+            patch.getPatchData(d_energy, getCurrentDataContext())));
+    alpine_data["fields/energy/topology"] = "mesh";
+    alpine_data["fields/energy/type"] = "scalar";
+    alpine_data["fields/energy/values"].set_external(energy->getPointer());
+
+    alpine_data["fields/volume/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<double> > volume(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<double>,
+            patch.getPatchData(d_volume, getCurrentDataContext())));
+    alpine_data["fields/volume/topology"] = "mesh";
+    alpine_data["fields/volume/type"] = "scalar";
+    alpine_data["fields/volume/values"].set_external(volume->getPointer());
+
+    alpine_data["fields/level_indicator/association"] = "element";
+    boost::shared_ptr<clever::pdat::CleverCellData<int> > level_indicator(
+        SHARED_PTR_CAST(clever::pdat::CleverCellData<int>,
+            patch.getPatchData(d_level_indicator, getCurrentDataContext())));
+    alpine_data["fields/level_indicator/topology"] = "mesh";
+    alpine_data["fields/level_indicator/type"] = "scalar";
+    alpine_data["fields/level_indicator/values"].set_external(level_indicator->getPointer());
+
 }
 
 void Cleverleaf::initializeCallback()

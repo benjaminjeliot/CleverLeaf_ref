@@ -21,6 +21,9 @@
 #include <fstream>
 #include <unistd.h>
 
+#include <conduit.hpp>
+#include <alpine.hpp>
+
 #if defined(_OPENMP)
 #include <omp.h>
 #endif
@@ -294,6 +297,16 @@ int main(int argc, char* argv[]) {
     tbox::plog << "\nVariable database..." << endl;
     hier::VariableDatabase::getDatabase()->printClassData(tbox::plog);
 
+    // ALPINE stuff
+    alpine::Alpine alp;
+    conduit::Node alpine_opts;
+#if USE_MPI
+    alpine_opts["mpi_comm"] = MPI_COMM_c2f(MPI_COMM_WORLD);
+#endif
+    alpine_opts["pipeline/type"] = "vtkm";
+    alpine_opts["pipeline/backend"] = "serial";
+    alp.Open(alpine_opts);
+
     double loop_time = lagrangian_eulerian_integrator->getIntegratorTime();
     double loop_time_end = lagrangian_eulerian_integrator->getEndTime();
 
@@ -317,6 +330,36 @@ int main(int argc, char* argv[]) {
         lagrangian_eulerian_integrator->printFieldSummary();
       }
 
+      // ALPINE
+
+      std::stringstream outFileNameSS;
+      outFileNameSS << "cleverleaf_image_" << iteration_num - 1;
+      conduit::Node actions;
+      conduit::Node &add = actions.append();
+      add["action"] = "add_plot";
+      add["field_name"] = "density";
+      conduit::Node &draw = actions.append();
+      add["render_options/file_name"] = outFileNameSS.str();
+      add["render_options/width"] = 1024;
+      add["render_options/height"] = 1024;
+      draw["action"] = "draw_plots";
+
+      conduit::Node alpine_data;
+      alpine_data["state/time"] = loop_time;
+      alpine_data["state/cycle"] = iteration_num - 1;
+      alpine_data["state/info"] = "In-situ rendering from Cleverleaf AMR mini app";
+
+      lagrangian_eulerian_integrator->getAlpineData(alpine_data);
+      conduit::Node verify_info;
+      if(!conduit::blueprint::mesh::verify(alpine_data, verify_info))
+      {
+        CONDUIT_INFO("blueprint verify failed!" + verify_info.to_json());
+      }
+
+      alp.Publish(alpine_data);
+      alp.Execute(actions);
+
+
       tbox::pout << "At end of timestep # " << iteration_num - 1 << endl;
       tbox::pout << "Simulation time is " << loop_time << endl;
       tbox::pout << "++++++++++++++++++++++++++++++++++++++++++++" << endl;
@@ -328,6 +371,8 @@ int main(int argc, char* argv[]) {
             loop_time);
       }
     }
+
+    alp.Close();
 
     if ((vis_dump_interval > 0) && 
         (lagrangian_eulerian_integrator->getIntegratorStep()

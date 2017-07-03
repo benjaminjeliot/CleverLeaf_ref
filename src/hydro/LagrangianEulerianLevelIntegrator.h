@@ -35,6 +35,8 @@
 #include "SAMRAI/tbox/Timer.h"
 #include "SAMRAI/tbox/StartupShutdownManager.h"
 
+#include <alpine.hpp>
+
 using namespace SAMRAI;
 
 /**
@@ -391,6 +393,14 @@ class LagrangianEulerianLevelIntegrator:
         double* level_internal_energy,
         double* level_kinetic_energy,
         int* level_effective_cells);
+
+    /**
+     * Do ALPINE stuff
+     *
+     *  @param level The level to work on.
+     */
+    void getAlpineData(
+        const boost::shared_ptr<hier::PatchLevel>& level, conduit::Node &alpine_data);
   private:
     LagrangianEulerianPatchStrategy* d_patch_strategy;
 

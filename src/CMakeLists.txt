@@ -1,4 +1,6 @@
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CONDUIT_INCLUDE_DIRS})
+include_directories(${ALPINE_INCLUDE_DIRS})
 
 add_subdirectory(geom)
 add_subdirectory(hydro)
@@ -11,11 +13,12 @@ target_link_libraries(cleverleaf
   hydro
   geom
   pdat
+  alpine
   ${SAMRAI_ALGS_LIBRARIES}
-  ${SAMRAI_XFER_LIBRARIES}
   ${SAMRAI_APPU_LIBRARIES}
   ${SAMRAI_MATH_LIBRARIES}
   ${SAMRAI_MESH_LIBRARIES}
+  ${SAMRAI_XFER_LIBRARIES}
   ${SAMRAI_GEOM_LIBRARIES}
   ${SAMRAI_PDAT_LIBRARIES}
   ${SAMRAI_SOLV_LIBRARIES}

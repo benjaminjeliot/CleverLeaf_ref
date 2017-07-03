@@ -23,6 +23,9 @@
 #include "SAMRAI/tbox/Dimension.h"
 #include "SAMRAI/xfer/RefinePatchStrategy.h"
 
+#include <conduit.hpp>
+#include <alpine.hpp>
+
 using namespace SAMRAI;
 
 class LagrangianEulerianLevelIntegrator;
@@ -268,6 +271,10 @@ class LagrangianEulerianPatchStrategy: public xfer::RefinePatchStrategy
     virtual void fillLevelIndicator(
           hier::Patch& patch,
           const int level_number) = 0;
+
+    virtual void getAlpineData(
+          hier::Patch& patch, conduit::Node &alpine_data) = 0;
+
   protected:
     int d_which_exchange;
   private:

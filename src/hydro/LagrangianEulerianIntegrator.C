@@ -17,6 +17,8 @@
 //////////////////////////////////////////////////////////////////////////////
 #include "LagrangianEulerianIntegrator.h"
 
+#include <alpine.hpp>
+
 #ifdef DEBUG_FIELDS
 #define DEBUG_LEVELS() \
   for (level_number = 0; level_number <= finest_level_number; level_number++) { \
@@ -517,6 +519,18 @@ double LagrangianEulerianIntegrator::printFieldSummary()
   //tbox::plog << "Total Cells: " << total_cells << "@" << mpi.getRank() << std::endl;
 
   return global_kinetic_energy;
+}
+
+void LagrangianEulerianIntegrator::getAlpineData(conduit::Node &alpine_data) {
+  std::cout << "Inside LagrangianEulerianIntegrator::doAlpine" << std::endl;
+
+  int finest_level_number = d_patch_hierarchy->getFinestLevelNumber();
+  for(int level_number = 0; level_number <= finest_level_number; level_number++) {
+    std::cout << "  level_number = " << level_number << std::endl;
+    boost::shared_ptr<hier::PatchLevel> patch_level(
+        d_patch_hierarchy->getPatchLevel(level_number));
+    d_level_integrator->getAlpineData(patch_level, alpine_data);
+  }
 }
 
 void LagrangianEulerianIntegrator::initializeCallback()

@@ -40,6 +40,8 @@
 #include "pdat/CleverNodeVariable.h"
 #include "pdat/CleverSideVariable.h"
 
+#include <conduit.hpp>
+
 /**
  * @class Cleverleaf
  *
@@ -366,6 +368,10 @@ class Cleverleaf:
     void fillLevelIndicator(
         SAMRAI::hier::Patch& patch,
         const int level_number);
+
+    virtual void getAlpineData(
+        SAMRAI::hier::Patch& patch, conduit::Node &alpine_data);
+
   private:
     boost::shared_ptr<SAMRAI::hier::PatchHierarchy> d_hierarchy;
     boost::shared_ptr<SAMRAI::appu::VisItDataWriter> d_visit_writer;

@@ -30,6 +30,8 @@
 #include "SAMRAI/tbox/Timer.h"
 #include "SAMRAI/tbox/StartupShutdownManager.h"
 
+#include <alpine.hpp>
+
 using namespace SAMRAI;
 
 /**
@@ -220,6 +222,11 @@ class LagrangianEulerianIntegrator {
      * @returns The total kinetic energy, for testing.
      */
     double printFieldSummary();
+
+    /**
+     * Gets the ALPINE data model
+     */
+    void getAlpineData(conduit::Node &alpine_data);
   private:
     void initializeLevelData(const int level_number);
 
